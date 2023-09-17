@@ -23,7 +23,7 @@ load_data <- function() {
     mutate(df_name = str_split_i(value, "\\.", 1))
   
   for(files in 1L:nrow(files_df)) {
-    assign(files_df$df_name[files], read_csv(here(files_df$path[files])))
+    assign(files_df$df_name[files], read_csv(here(files_df$path[files])), envir = .GlobalEnv)
   }
 }
 
