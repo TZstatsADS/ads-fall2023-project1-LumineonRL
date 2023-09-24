@@ -78,7 +78,7 @@ filtered_data <- cleaned_hm %>%
 
 ## Process data
 
-Calculate relative frequency of POS within each ground_truth_category. This is necessary since the ground_truth_category counts are not at all balanced.
+Calculate relative frequency of each POS within each ground_truth_category. This is necessary since the ground_truth_category counts are not at all balanced.
 
 ```{r q1_process, message = FALSE, warning = FALSE}
 #| echo: true
@@ -136,9 +136,9 @@ ggsave(here("figs", "categories_by_pos.png"))
 
 ## Question 1 Analysis:
 
-While there isn't quite as much variance as I'd have hoped, the bar charts still show some that every category uses each part of speech in quite the same way.
+While there isn't quite as much variance as I'd have hoped, the bar charts still show that not every category uses each part of speech in quite the same way.
 
-The big standouts to me here are affection pronounces and leisure nouns, but lets dive a little deeper.
+The big standouts to me here are affection pronouns and leisure nouns, but lets dive a little deeper.
 
 # Question 2:
 
@@ -149,7 +149,7 @@ Is there a category that frequently differs from other categories across many pa
 ## Process data
 
 -   Calculate, on average, what percentage a given POS occurs for each category.
--   Calculate difference from average for each POS, prediction pair
+-   Calculate the difference from average for each (POS, prediction) pair
 
 ```{r q2_process}
 #| echo: true
@@ -225,9 +225,9 @@ The chart is interactable! Hover over an emoji to see which category it belongs 
 
 ## Question 2 Analysis:
 
-This chart confirms what we initially observed from the bar chart from the initial research question.
+This chart confirms what we initially observed from the bar chart from research question #1
 
-Pronouns and nouns appears to be the parts of speech most affected by the category, while adjectives and conjunctions are hardly affected at all.
+Pronouns and nouns appear to be the parts of speech most affected by the category, while adjectives and conjunctions are hardly affected at all.
 
 ## Standouts
 
@@ -277,12 +277,6 @@ joined_data <- joined_data %>%
   left_join(average_relative_freq, by = c("POS", "lowercaseLemma")) %>%
   group_by(POS, lowercaseLemma) %>%
   mutate(max_relative_frequency = max(relative_frequency))
-```
-
-## Write data
-
-```{r q3_write}
-write_csv(joined_data, here("output", "word_freq_analysis.csv"))
 ```
 
 ## Set Top Word Default {visibility="hidden"}
