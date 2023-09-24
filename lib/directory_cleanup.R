@@ -1,3 +1,5 @@
+library(here)
+
 clean_path <- function(current_dir, desired_dir, file) {
   old_path <- file.path(here(current_dir), file)
   
