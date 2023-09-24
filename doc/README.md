@@ -9,3 +9,14 @@ I recommend heading over to https://quarto.org/docs/download/ and installing ver
 ### Doc folder
 
 The doc directory contains the report or presentation files. It can have subfolders.  
+
+## Contents
+
+`Project1.qmd` is the main file to run for this project. The other files in this directory are here to support that file.
+
+A `.qmd` file is very similar to a `.rmd` file, but is produced by the `quarto package` and allows for some extra extensibility.
+
+The `Project1_files` sub directory contains files required for `Project1.qmd` to run.
+`styles.css` contains a custom `.css` script that's used within the `qmd` markdown file.
+
+`Project1.html` is an output file that will placed in this folder after rendering. An identical file also exists in the `output` directory.
