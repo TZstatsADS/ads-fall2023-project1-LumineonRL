@@ -1,0 +1,389 @@
+---
+title: "Project 1"
+author: "Michael Wiley mw3239"
+format:
+  revealjs:
+    incremental: false
+    scrollable: true
+    theme: dark
+    code-fold: true
+    css: styles.css
+  html:
+    code-fold: true
+---
+
+# Happy Moments {.center}
+
+A Lingustic Deep Dive
+
+## Imports and Setup
+
+-   Relevant `tidyverse` libraries
+-   `here` used for relative directory navigation
+-   `emojifont` used to place emoji on plots.
+-   `plotly` and `shiny` used to create interactive visuals.
+
+```{r imports, message = FALSE}
+#| echo: true
+
+library(magrittr)
+library(stringr)
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+library(here)
+library(emojifont)
+library(plotly)
+library(shiny)
+```
+
+## Load data {visibility="hidden"}
+
+Loads helper functions from the `lib` folder.
+
+```{r source files, echo = FALSE, warning = FALSE, message = FALSE}
+#| echo: true
+#| message: false
+#| warning: false
+
+source_files <- list.files(here("lib")) %>%
+  str_subset("\\.R$") %>%
+  str_c(here("lib"), "/", .)
+
+lapply(source_files, source)
+```
+
+```{r load data, warning = FALSE, message = FALSE}
+#| echo: true
+
+load_data()
+```
+
+# Question 1:
+
+Within the happy moments dataset, do moments belonging to different categories feature different part of speech distributions? Perhaps some categories feature an uncharacteristic number of adjectives, for example?
+
+## Filter data
+
+Keep only categories we know the ground truth for - there's still a lot of data and it's not clear how accurate the predicted categories are.
+
+```{r q1_filter}
+#| echo: true
+
+filtered_data <- cleaned_hm %>%
+  left_join(senselabel, by = "hmid") %>%
+  filter(!is.na(ground_truth_category))
+```
+
+## Process data
+
+Calculate relative frequency of POS within each ground_truth_category. This is necessary since the ground_truth_category counts are not at all balanced.
+
+```{r q1_process, message = FALSE, warning = FALSE}
+#| echo: true
+#| message: false
+
+pos_count <- filtered_data %>%
+  group_by(ground_truth_category, POS) %>%
+  summarise(count = n()) %>%
+  group_by(ground_truth_category) %>%
+  mutate(relative_frequency = count / sum(count)) %>%
+  arrange(ground_truth_category, POS)
+```
+
+## Check data
+
+```{r q1_check}
+#| echo: true
+
+pos_count
+```
+
+## Write data {visibility="hidden"}
+
+```{r q1_write, message = FALSE}
+write_csv(pos_count, here("output", "pos_count.csv"))
+```
+
+## Visualize data
+
+Plot the faceted bar chart of relative frequency for each POS and ground_truth_category
+
+```{r q1_plot, message = FALSE}
+#| echo: true
+
+ggplot(pos_count, aes(x = ground_truth_category, y = relative_frequency, fill = ground_truth_category)) +
+  geom_bar(stat = "identity") +
+  xlab("Ground Truth Category") +
+  ylab("Relative Frequency") +
+  ylim(0, max(pos_count$relative_frequency)) +
+  ggtitle("Relative Frequency of Ground Truth Categories by POS") +
+  facet_wrap(~ POS, nrow = 2) +
+  scale_fill_discrete(name = "Ground Truth Category") +
+  dark_theme() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title.x = element_text(size = 17),
+        axis.title.y = element_text(size = 17)
+        )
+
+ggsave(here("figs", "categories_by_pos.png"))
+```
+
+::: aside
+:::
+
+## Question 1 Analysis:
+
+While there isn't quite as much variance as I'd have hoped, the bar charts still show some that every category uses each part of speech in quite the same way.
+
+The big standouts to me here are affection pronounces and leisure nouns, but lets dive a little deeper.
+
+# Question 2:
+
+Which (POS, ground_truth_category) pairs most differ from other categories for that part of speech?
+
+Is there a category that frequently differs from other categories across many parts of speech?
+
+## Process data
+
+-   Calculate, on average, what percentage a given POS occurs for each category.
+-   Calculate difference from average for each POS, prediction pair
+
+```{r q2_process}
+#| echo: true
+
+average_pos_frequency <- pos_count %>%
+  group_by(POS) %>%
+  summarise(average_frequency = mean(relative_frequency))
+
+average_pos_frequency <- pos_count %>%
+  left_join(average_pos_frequency, by = "POS") %>%
+  mutate(difference_from_average = relative_frequency - average_frequency)
+```
+
+## Add emoji
+
+```{r q2_process_emoji}
+#| echo: true
+
+average_pos_frequency <- average_pos_frequency %>%
+  mutate(emoji = case_when(ground_truth_category=="achievement"~"🏆",
+                           ground_truth_category=="affection"~"❤️",
+                           ground_truth_category=="bonding"~"👪",
+                           ground_truth_category=="enjoy_the_moment"~"😊",
+                           ground_truth_category=="leisure"~"⛱️",
+                           ground_truth_category=="nature"~"🌳",
+                           ground_truth_category=="exercise"~"🏋️",
+                           T~"")
+         )
+```
+
+## Write data
+
+```{r q2_write}
+#| echo: true
+
+write_csv(average_pos_frequency, here("output", "average_pos_frequency.csv"))
+```
+
+## Check data
+
+```{r print_test}
+#| echo: true
+
+average_pos_frequency
+```
+
+## Plot data
+
+```{r q2_plot}
+#| echo: true
+
+p <- ggplot(average_pos_frequency, aes(x = POS, y = difference_from_average, label = emoji, color = ground_truth_category, text = ground_truth_category)) +
+  geom_text(family = "EmojiOne", size = 7) +
+  labs(title = "Difference in Relative Frequency from Average",
+       x = "POS", y = "Difference") +
+  dark_theme() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(color = FALSE)
+
+p <- ggplotly(p, tooltip = c("x", "y", "text"))
+
+p
+```
+
+```{r q2_save}
+html_file <- here("figs", "relative_freq_vs_avg.html")
+htmlwidgets::saveWidget(p, file = html_file, selfcontained = TRUE)
+```
+
+::: aside
+The chart is interactable! Hover over an emoji to see which category it belongs to.
+:::
+
+## Question 2 Analysis:
+
+This chart confirms what we initially observed from the bar chart from the initial research question.
+
+Pronouns and nouns appears to be the parts of speech most affected by the category, while adjectives and conjunctions are hardly affected at all.
+
+## Standouts
+
+Occur More than in Other Categories:
+
+-   Affection + Pronouns
+-   Leisure + Nouns
+-   Bonding + Nouns
+
+Occur Less than in Other Categories:
+
+-   Nature + Pronouns
+-   Exercise + Nouns
+-   Affection + Determiners
+
+# Questions 3 and 4:
+
+-   What words occur most frequently in these outlier (POS, category) pairs?
+-   Likewise, what words occur more frequently in a given (POS, category) than in other categories?
+
+## Filter data
+
+-   Join `senselabel` with `cleaned_hm` on `hmid` and once again calculate frequencies
+-   Calculate average relative frequency across all categories for each `POS`
+-   Finally add an average relative frequency column to the `joined_data` df
+
+```{r q3_filter, message = FALSE}
+#| echo: true
+
+joined_data <- inner_join(cleaned_hm, senselabel, by = "hmid") %>%
+  dplyr::filter(!is.na(ground_truth_category)) %>%
+  group_by(POS, lowercaseLemma) %>%
+  mutate(total_count = n()) %>%
+  ungroup() %>%
+  group_by(POS, lowercaseLemma, ground_truth_category) %>%
+  mutate(within_category_count = n()) %>%
+  ungroup() %>%
+  mutate(relative_frequency = within_category_count / total_count)
+
+
+average_relative_freq <- joined_data %>%
+  group_by(POS, lowercaseLemma) %>%
+  summarize(avg_relative_freq = mean(relative_frequency, na.rm = TRUE))
+
+
+joined_data <- joined_data %>%
+  left_join(average_relative_freq, by = c("POS", "lowercaseLemma")) %>%
+  group_by(POS, lowercaseLemma) %>%
+  mutate(max_relative_frequency = max(relative_frequency))
+```
+
+## Write data
+
+```{r q3_write}
+write_csv(joined_data, here("output", "word_freq_analysis.csv"))
+```
+
+## Set Top Word Default {visibility="hidden"}
+
+```{r q3_constant}
+top_words_count <- 10
+```
+
+## Shiny
+
+Sets up the shiny ui and server.
+
+```{r q3_shiny_ui}
+#| echo: true
+
+ui <- fluidPage(
+  titlePanel("Word Frequency Analysis"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      # Category filter
+      selectInput("category_filter", "Category:", choices = unique(joined_data$ground_truth_category)),
+      
+      # POS filter
+      selectInput("pos_filter", "POS:", choices = unique(joined_data$POS)),
+      
+      # Top words count
+      numericInput("top_words_count", "Top Words Count:", value = 10, min = 1),
+      
+      # Standout words threshold
+      sliderInput("standout_words_threshold", "Standout Words Threshold:", min = 0, max = 1, value = 0.8),
+      
+      #Total Count Filter      
+      sliderInput("total_count_filter", "Total Count Filter:", min = 1, max = 100, value = 2)
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel(
+          "Top Words",
+          tableOutput("top_words_table")
+        ),
+        
+        tabPanel(
+          "Standout Words",
+          p("This tab displays the words that appear in the selected category significantly more than any other category. The relative_frequency denotes how many times a word appeared for a particular (POS, category) combination relative to every other category. For example, a relative frequency of 0.8 and total_count of 5 means of the 5 times the word appeared, 4 of them were in this category."),
+          tableOutput("standout_words_table")
+        )
+      )
+    )
+  )
+)
+```
+
+```{r q3_shiny_server}
+#| echo: true
+
+server <- function(input, output) {
+  output$top_words_table <- renderTable({
+    filtered_data <- joined_data %>%
+      filter(POS == input$pos_filter, ground_truth_category == input$category_filter) %>%
+      count(lowercaseLemma) %>%
+      arrange(desc(n)) %>%
+      head(input$top_words_count)
+    filtered_data
+  })
+  
+  output$standout_words_table <- renderTable({
+    filtered_data <- joined_data %>%
+      dplyr::filter(POS == input$pos_filter,
+             ground_truth_category == input$category_filter,
+             total_count >= input$total_count_filter) %>%
+      group_by(lowercaseLemma) %>%
+      dplyr::select(lowercaseLemma, relative_frequency, avg_relative_freq, total_count) %>%
+      distinct() %>%
+      dplyr::filter(relative_frequency >= input$standout_words_threshold) %>%
+      arrange(desc(relative_frequency), desc(total_count))
+    filtered_data
+  })
+}
+```
+
+## App
+
+```{r q3_run_shiny}
+#| echo: true
+#| context: server
+
+shinyApp(ui = ui, server = server)
+```
+
+::: aside
+Note: This must be run directly from `Project1.qmd`
+:::
+
+## Questions 3 & 4 Analysis
+
+-   `I` was the most common pronoun for all happy moment categories... besides `affection`, where `my` came out on top.
+-   Surprisingly, however, not too many words stood out to me as appearing with significantly high counts only in specific categories that I wouldn't expect to be there. What stood out to me more is that a number of words seem to have the wrong part of speech attached to them entirely.
+-   Try filtering `POS` down to `ADJ` on the `Standout Words` tab and observe how many non-adjectives were classified as adjectives.
+
+# Conclusion and Future Analysis
+
+-   This analysis focused on how sentence construction and POS distribution varied within the context of happy moments. However, it might be interesting to perform this same analysis at a higher level to see how the composition of happy moments sentences as a whole compare to sentences in the English language in general.
